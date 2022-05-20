@@ -10,10 +10,10 @@ import org.marsofandrew.chat.core.model.Publisher;
 import org.marsofandrew.chat.core.model.Subscriber;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -35,7 +35,8 @@ public final class Clients {
     @RequiredArgsConstructor
     public static class Client implements Subscriber<String>, Publisher<String> {
 
-        private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                .withZone(ZoneId.systemDefault());
         private static final String RESPONSE_FORMAT = "FROM %s at %s: %s\n";
 
         private final TopicService<String> topicService;
@@ -58,21 +59,13 @@ public final class Clients {
         }
 
         @Override
-        public Callable<Boolean> handleMessage(String topic, String sender, String message, Instant instant) {
+        public void handleMessage(String topic, String sender, String message, Instant instant) {
             if (channel == null || !channel.isActive()) {
                 log.error("[{}] Couldn't handle message", user);
-                return null;
+                return;
             }
-            return () -> {
-                try {
-                    channel.writeAndFlush(String.format(RESPONSE_FORMAT, sender, DATE_TIME_FORMATTER.format(instant),
-                            message)).sync().get();
-                    return true;
-                } catch (Exception e) {
-                    return false;
-                }
-            };
-
+            channel.writeAndFlush(String.format(RESPONSE_FORMAT, sender, DATE_TIME_FORMATTER.format(instant),
+                    message));
         }
 
         public void joinChannel(String topic) {

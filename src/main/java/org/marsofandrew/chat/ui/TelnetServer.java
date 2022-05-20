@@ -35,8 +35,9 @@ public class TelnetServer {
         log.info("Server started");
         final EventLoopGroup bossGroup = new NioEventLoopGroup();
         final EventLoopGroup workerGroup = new NioEventLoopGroup();
-        try (TopicService<String> topicService =
-                     new TopicService<>(messageLimit, clientsPerChanelLimit, clientsPerChanelLimit)) {
+        try  {
+            TopicService<String> topicService =
+                    new TopicService<>(messageLimit, clientsPerChanelLimit, clientsPerChanelLimit);
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
@@ -46,7 +47,6 @@ public class TelnetServer {
                         protected void initChannel(SocketChannel ch) throws Exception {
                             ChannelPipeline pipeline = ch.pipeline();
 
-                            // Add the text line codec combination first,
                             pipeline.addLast(new DelimiterBasedFrameDecoder(
                                             8192, Delimiters.lineDelimiter()),
                                     new StringDecoder(),
