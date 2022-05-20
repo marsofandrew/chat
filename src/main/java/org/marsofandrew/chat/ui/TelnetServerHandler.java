@@ -3,8 +3,10 @@ package org.marsofandrew.chat.ui;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.marsofandrew.chat.core.Clients;
+import org.marsofandrew.chat.core.TopicService;
 import org.marsofandrew.chat.core.exception.ClientNotJoinedToChannelException;
 import org.marsofandrew.chat.core.exception.InvalidPasswordException;
 
@@ -18,6 +20,7 @@ import java.util.function.BiConsumer;
  * Handles a server-side channel.
  */
 @Slf4j
+@RequiredArgsConstructor
 public class TelnetServerHandler extends SimpleChannelInboundHandler<String> {
 
     private final Map<String, BiConsumer<List<String>, Channel>> COMMANDS = Map.of(
@@ -26,6 +29,7 @@ public class TelnetServerHandler extends SimpleChannelInboundHandler<String> {
             "/join", this::join,
             "/users", this::getUsers);
 
+    private final TopicService<String> topicService;
     private Clients.Client client;
 
     @Override
@@ -74,12 +78,11 @@ public class TelnetServerHandler extends SimpleChannelInboundHandler<String> {
             return;
         }
         try {
-            client = Clients.login(args.get(0), args.get(1))
+            client = Clients.login(topicService, args.get(0), args.get(1))
                     .setChannel(channel);
         } catch (InvalidPasswordException exception) {
             channel.writeAndFlush("Invalid password\n");
         }
-        client.updateChat();
     }
 
     private void leave(List<String> ign, Channel channel) {

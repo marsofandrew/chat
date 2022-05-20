@@ -1,9 +1,11 @@
 package org.marsofandrew.chat.core.model;
 
 import java.time.Instant;
+import java.util.concurrent.Callable;
+import java.util.function.BooleanSupplier;
 
 public interface Subscriber<M> {
-    void handleMessage(String topic, String sender, M message, Instant instant);
+    Callable<Boolean> handleMessage(String topic, String sender, M message, Instant instant);
 
 
 }

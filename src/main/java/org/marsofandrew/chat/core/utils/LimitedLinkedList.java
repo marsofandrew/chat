@@ -1,5 +1,7 @@
 package org.marsofandrew.chat.core.utils;
 
+import org.marsofandrew.chat.core.utils.exception.OversizeException;
+
 import java.util.Collection;
 import java.util.LinkedList;
 
@@ -14,7 +16,7 @@ public class LimitedLinkedList<E> extends AbstractFramedLinkedList<E> {
     }
 
     @Override
-    protected void handleOversize(int ign) {
-        throw new IndexOutOfBoundsException(); //TODO: refactor
+    protected void preHandleOversize(int ign) {
+        throw new OversizeException(limit);
     }
 }

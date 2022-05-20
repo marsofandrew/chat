@@ -14,7 +14,16 @@ public class FramedQueue<E> extends AbstractFramedLinkedList<E> {
     }
 
     @Override
-    protected void handleOversize(int oversizeAmount) {
-       removeRange(0, oversizeAmount);
+    protected void preHandleOversize(int oversizeAmount) {
+        if (size() >= oversizeAmount) {
+            removeRange(0, oversizeAmount);
+        } else {
+            clear();
+        }
+    }
+
+    @Override
+    protected void postHandleOversize(int oversizeAmount) {
+        removeRange(0, oversizeAmount);
     }
 }

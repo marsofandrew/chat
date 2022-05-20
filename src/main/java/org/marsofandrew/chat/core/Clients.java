@@ -10,7 +10,10 @@ import org.marsofandrew.chat.core.model.Publisher;
 import org.marsofandrew.chat.core.model.Subscriber;
 
 import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
@@ -18,21 +21,28 @@ public final class Clients {
 
     private static final ConcurrentHashMap<String, Client> CLIENTS = new ConcurrentHashMap<>();
 
-    public static Client login(@NonNull String username, @NonNull String password) {
-        var client = CLIENTS.computeIfAbsent(username, ign -> new Client(username, password));
+    public static Client login(@NonNull TopicService<String> topicService, @NonNull String username, @NonNull String password) {
+        var client = CLIENTS.computeIfAbsent(username, ign -> new Client(topicService, username, password));
         if (!client.password.equals(password)) {
             throw new InvalidPasswordException();
         }
         return client;
     }
 
+    /**
+     * Class to represent single client
+     */
     @RequiredArgsConstructor
     public static class Client implements Subscriber<String>, Publisher<String> {
+
+        private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         private static final String RESPONSE_FORMAT = "FROM %s at %s: %s\n";
+
+        private final TopicService<String> topicService;
         private final String user;
         private final String password;
         private Channel channel;
-        private Topics.Topic<String> currentTopic;
+        private TopicService.Topic<String> currentTopic;
 
         @Override
         public void sendMessage(String message) {
@@ -48,11 +58,21 @@ public final class Clients {
         }
 
         @Override
-        public void handleMessage(String topic, String sender, String message, Instant instant) {
+        public Callable<Boolean> handleMessage(String topic, String sender, String message, Instant instant) {
             if (channel == null || !channel.isActive()) {
                 log.error("[{}] Couldn't handle message", user);
+                return null;
             }
-            channel.writeAndFlush(String.format(RESPONSE_FORMAT, sender, instant.toString(), message));
+            return () -> {
+                try {
+                    channel.writeAndFlush(String.format(RESPONSE_FORMAT, sender, DATE_TIME_FORMATTER.format(instant),
+                            message)).sync().get();
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            };
+
         }
 
         public void joinChannel(String topic) {
@@ -63,7 +83,7 @@ public final class Clients {
                 currentTopic.unregisterClient(this, this);
             }
 
-            var topicChannel = Topics.getStringTopic(topic);
+            var topicChannel = topicService.getTopic(topic);
             topicChannel.registerClient(this, this);
             currentTopic = topicChannel;
         }
@@ -79,16 +99,22 @@ public final class Clients {
             channel.flush().close();
         }
 
-        public synchronized void updateChat() {
-            if (currentTopic != null) {
-                currentTopic.getMessages().forEach(message ->
-                        handleMessage(currentTopic.getTopic(), message.sender(), message.message(), message.timestamp()));
-            }
-        }
-
         public Client setChannel(@NonNull Channel channel) {
             this.channel = channel;
             return this;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Client client = (Client) o;
+            return user.equals(client.user) && password.equals(client.password);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(user, password);
         }
     }
 }
